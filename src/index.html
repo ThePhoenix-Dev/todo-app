@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>TODO</title>
+    <link rel="stylesheet" href="index.css" />
+    <script>
+      const ipc = require('electron').ipcRenderer;
+      const fs = require('fs');
+      const os = require('os');
+
+      const filePath = os.homedir()+"/AppData/Local/todos"
+
+      fs.appendFileSync(filePath, "")
+
+      function sleep(milliseconds) {
+          const date = Date.now();
+          let currentDate = null;
+          do {
+            currentDate = Date.now();
+          } while (currentDate - date < milliseconds);
+        }
+
+      function onBodyLoaded () {
+        document.body.addEventListener("keydown", (e)=>{
+          if (e.key == "Backspace") {
+            if (document.activeElement.value === "") {
+              fs.writeFileSync(filePath, save())
+              document.activeElement.parentNode.remove()
+            }
+          }
+        })
+
+        function save () {
+          let children = document.getElementsByClassName("content")[0].children
+          let finalString = ""
+          for (let i = 0; i < children.length; i++) {
+            child = children[i].children[0]
+            if (child.value != "" && child.value != null) {
+              if (i == 0) {
+                finalString = finalString + child.value
+              } else {
+                finalString = finalString + "<//break//>" + child.value
+              }
+            }
+          }
+          return finalString
+        }
+
+        document.getElementsByClassName("close")[0].addEventListener('click', () => {
+          fs.writeFileSync(filePath, save())
+          ipc.send("close")
+        })
+        document.getElementsByClassName("minimize")[0].addEventListener('click', () => {
+          ipc.send("min")
+        })
+
+        function OnInput() {
+          console.log("input happened")
+          this.style.height = "auto";
+          this.style.height = (this.scrollHeight) + "px";
+          fs.writeFileSync(filePath, save())
+        }
+
+        const addTodo = (_,value,focus) => {
+          let newFrame = document.createElement("div")
+          let newCheckbox = document.createElement("div")
+
+          newCheckbox.id="finish_task"
+
+          let newInput = document.createElement("textarea")
+          newInput.placeholder = "New task..."
+          if (focus == null || focus == true) {
+            newInput.focus()
+          }
+
+          let val = value
+
+          if (val == null) {
+            val = ""
+          }
+          newInput.value = val
+
+          newCheckbox.addEventListener("click", ()=>{
+            newCheckbox.style.backgroundColor = "white"
+            sleep(100)
+            newFrame.style.animationName = "move_away"
+            setTimeout(()=>{newFrame.remove(); fs.writeFileSync(filePath, save())}, 1000)
+          })
+          let txs = document.getElementsByTagName("textarea");
+          for (let i = 0; i < txs.length; i++) {
+            txs[i].setAttribute("style", "height:" + (txs[i].scrollHeight) + "px;overflow-y:hidden;");
+            txs[i].style.height = "auto";
+            txs[i].style.height = (txs[i].scrollHeight) + "px"
+          }
+          newInput.addEventListener("change", OnInput);
+
+          newInput.addEventListener("keypress", (e) => {
+            if (e.key == "Enter") {
+              newInput.blur()
+            }
+          })
+
+          newFrame.appendChild(newInput)
+          newFrame.appendChild(newCheckbox)
+          document.getElementsByClassName("content")[0].appendChild(newFrame)
+        }
+
+        this.todoFileContent = fs.readFileSync(filePath,"utf8")
+        for (let i = 0; i < todoFileContent.split("<//break//>").length; i++) {
+          if (todoFileContent.split("<//break//>")[i] != "") {
+            addTodo(null, todoFileContent.split("<//break//>")[i], false)
+          }
+        }
+        const tx = document.getElementsByTagName("textarea");
+        for (let i = 0; i < tx.length; i++) {
+          tx[i].setAttribute("style", "height:" + (tx[i].scrollHeight) + "px;overflow-y:hidden;");
+          tx[i].addEventListener("change", OnInput);
+          tx[i].style.height = "auto";
+          tx[i].style.height = (tx[i].scrollHeight) + "px"
+        }
+        document.getElementsByClassName("footer")[0].children[0].addEventListener("click", addTodo)
+      }
+    </script>
+  </head>
+  <body onload="onBodyLoaded()">
+    <div class="top-bar">
+      <h1>TODO</h1>
+      <div>
+        <img src="rsrc/minimize.svg" draggable="false" class="minimize">
+        <img src="rsrc/close.svg" draggable="false" class="close">
+      </div>
+    </div>
+    <div class="content">
+    </div>
+    <div class="footer">
+      <button>+ Add TODO</button>
+    </div>
+  </body>
+</html>
